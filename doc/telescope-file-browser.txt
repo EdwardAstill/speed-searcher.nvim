@@ -117,8 +117,17 @@ their ancestors, and matching directories include their complete subtree.
 The preview pane lazily summarizes only the selected supported file. JSON
 objects show top-level keys, Markdown files show headings indented by level,
 and Python files show indented class and function symbols. Unsupported files
-keep Telescope's normal preview. The outline previewer is active by default;
-`<Tab>` toggles between the outline and full-file preview.
+keep Telescope's normal preview; the outline is shown by default.
+
+`<Tab>` cycles three tree modes. Search mode (default) edits the prompt and
+filters as you type. File mode marks the prompt with `▸ ` and makes characters
+act as commands: arrows and `<C-Up>`/`<C-Down>` move through rows, `o` toggles
+the outline/full-file preview, `<Space>` toggles multi-selection and moves
+down, `<CR>` opens, and `<Esc>` closes. Outline mode marks the prompt with
+`≡ `, requires a supported selected file with outline entries (otherwise the
+cycle skips it), moves the arrows through outline entries in the preview, and
+`<CR>` opens the file at the selected entry's line. Press `<Tab>` from any
+mode to advance the cycle.
 
 The file browser picker can be configured with the following options:
 
@@ -457,6 +466,53 @@ fb_actions.path_separator({prompt_bufnr})
                                   *telescope-file-browser.actions.next_match()*
 fb_actions.next_match({prompt_bufnr})
     Move to the next visible row that directly matches the tree search.
+
+    Parameters: ~
+      • {prompt_bufnr}  (`integer`) The prompt bufnr
+
+                          *telescope-file-browser.actions.cycle_tree_mode()*
+fb_actions.cycle_tree_mode({prompt_bufnr})
+    Cycle the tree modes: search (prompt edits), file (row navigation), and
+    outline (outline entry navigation). The outline mode requires a supported
+    selected file with outline entries; otherwise the cycle skips it.
+
+    Parameters: ~
+      • {prompt_bufnr}  (`integer`) The prompt bufnr
+
+                          *telescope-file-browser.actions.tree_next()*
+fb_actions.tree_next({prompt_bufnr})
+    Move down: outline entries in outline mode, otherwise result rows.
+
+    Parameters: ~
+      • {prompt_bufnr}  (`integer`) The prompt bufnr
+
+                          *telescope-file-browser.actions.tree_previous()*
+fb_actions.tree_previous({prompt_bufnr})
+    Move up: outline entries in outline mode, otherwise result rows.
+
+    Parameters: ~
+      • {prompt_bufnr}  (`integer`) The prompt bufnr
+
+                          *telescope-file-browser.actions.tree_select()*
+fb_actions.tree_select({prompt_bufnr})
+    Open the selected entry; in outline mode, open the file at the selected
+    outline entry's line instead of the start of the file.
+
+    Parameters: ~
+      • {prompt_bufnr}  (`integer`) The prompt bufnr
+
+                      *telescope-file-browser.actions.tree_multi_select()*
+fb_actions.tree_multi_select({prompt_bufnr})
+    Toggle multi-selection on the selected row and move down; does nothing in
+    outline mode.
+
+    Parameters: ~
+      • {prompt_bufnr}  (`integer`) The prompt bufnr
+
+                      *telescope-file-browser.actions.toggle_outline_preview()*
+fb_actions.toggle_outline_preview({prompt_bufnr})
+    Cycle between the outline and full-file previewers; leaves outline mode
+    when the outline previewer is no longer active.
 
     Parameters: ~
       • {prompt_bufnr}  (`integer`) The prompt bufnr

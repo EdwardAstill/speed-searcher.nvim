@@ -92,7 +92,23 @@ describe("tree picker", function()
     assert.is_nil(mapped["/"])
     assert.is_nil(mapped["<BS>"])
 
+    local normal_mapped = {}
+    for _, mapping in ipairs(vim.api.nvim_buf_get_keymap(prompt_bufnr, "n")) do
+      normal_mapped[mapping.lhs] = mapping
+    end
+    assert.is_not_nil(normal_mapped["<Tab>"])
+    assert.is_not_nil(normal_mapped[" "])
+    assert.is_not_nil(normal_mapped["o"])
+
+    local search_prefix = picker.prompt_prefix
     mapped["<Tab>"].callback(prompt_bufnr)
+    assert.are.same("file", picker._tree_mode)
+    assert.are_not.same(search_prefix, picker.prompt_prefix)
+    normal_mapped["<Tab>"].callback(prompt_bufnr)
+    assert.are.same("search", picker._tree_mode)
+    assert.are.same(search_prefix, picker.prompt_prefix)
+
+    normal_mapped["o"].callback(prompt_bufnr)
     assert.are.same(2, picker.current_previewer_index)
 
     local src = Path:new(root, "src"):absolute()
@@ -458,15 +474,14 @@ describe("tree picker", function()
       prompt_bufnr = find_prompt()
       return prompt_bufnr ~= nil
     end, 10))
-
-    local mapped = {}
-    for _, mapping in ipairs(vim.api.nvim_buf_get_keymap(prompt_bufnr, "i")) do
-      mapped[mapping.lhs] = mapping
+    local normal_mapped = {}
+    for _, mapping in ipairs(vim.api.nvim_buf_get_keymap(prompt_bufnr, "n")) do
+      normal_mapped[mapping.lhs] = mapping
     end
 
-    assert.is_not_nil(mapped["<Tab>"])
+    assert.is_not_nil(normal_mapped["o"])
     assert.has_no.errors(function()
-      mapped["<Tab>"].callback(prompt_bufnr)
+      normal_mapped["o"].callback(prompt_bufnr)
     end)
   end)
 
@@ -506,4 +521,69 @@ describe("tree picker", function()
       return not vim.api.nvim_buf_is_valid(prompt_bufnr)
     end, 10))
   end)
+
+  it("cycles into outline mode and opens files at outline entries", function()
+    local telescope = require "telescope"
+    telescope.setup {
+      extensions = {
+        file_browser = {
+          tree = true,
+          grouped = true,
+          hidden = true,
+          use_fd = false,
+          git_status = false,
+          display_stat = false,
+          mappings = {},
+        },
+      },
+    }
+    telescope.load_extension "file_browser"
+    local doc = Path:new(root, "notes.md")
+    vim.fn.writefile({ "# Alpha", "text", "## Beta", "more" }, doc:absolute())
+    telescope.extensions.file_browser.file_browser {
+      path = root,
+      cwd = root,
+    }
+
+    assert.is_true(vim.wait(1000, function()
+      prompt_bufnr = find_prompt()
+      return prompt_bufnr ~= nil
+    end, 10))
+
+    local picker = action_state.get_current_picker(prompt_bufnr)
+    local mapped = {}
+    for _, mapping in ipairs(vim.api.nvim_buf_get_keymap(prompt_bufnr, "i")) do
+      mapped[mapping.lhs] = mapping
+    end
+
+    picker:reset_prompt "notes"
+    assert.is_true(vim.wait(1000, function()
+      local selected = action_state.get_selected_entry()
+      return selected and selected.path == doc:absolute()
+    end, 10))
+
+    mapped["<Tab>"].callback(prompt_bufnr)
+    assert.are.same("file", picker._tree_mode)
+    mapped["<Tab>"].callback(prompt_bufnr)
+    assert.are.same("outline", picker._tree_mode)
+    assert.are.same(1, picker.current_previewer_index)
+
+    local normal_mapped = {}
+    for _, mapping in ipairs(vim.api.nvim_buf_get_keymap(prompt_bufnr, "n")) do
+      normal_mapped[mapping.lhs] = mapping
+    end
+    normal_mapped["<Down>"].callback(prompt_bufnr)
+    assert.are.same(2, picker._outline_index)
+
+    normal_mapped["<CR>"].callback(prompt_bufnr)
+    assert.is_true(vim.wait(1000, function()
+      return not vim.api.nvim_buf_is_valid(prompt_bufnr)
+    end, 10))
+    assert.is_true(vim.wait(1000, function()
+      return vim.api.nvim_buf_get_name(0) == doc:absolute() and vim.api.nvim_win_get_cursor(0)[1] == 3
+    end, 10))
+    assert.are.same(doc:absolute(), vim.api.nvim_buf_get_name(0))
+    assert.are.same(3, vim.api.nvim_win_get_cursor(0)[1])
+  end)
+
 end)

@@ -17,9 +17,14 @@ local function extract_json(lines)
   local escaped = false
   local string_value = {}
   local candidate
+  local candidate_line
+  local line = 1
 
   for index = 1, #source do
     local char = source:sub(index, index)
+    if char == "\n" then
+      line = line + 1
+    end
     if in_string then
       if escaped then
         table.insert(string_value, char)
@@ -37,6 +42,7 @@ local function extract_json(lines)
       in_string = true
       escaped = false
       string_value = {}
+      candidate_line = line
     elseif char == "{" then
       root_type = root_type or "object"
       object_depth = object_depth + 1
@@ -52,7 +58,7 @@ local function extract_json(lines)
     elseif char == ":" then
       if root_type == "object" and object_depth == 1 and candidate then
         local ok, key = pcall(vim.json.decode, '"' .. candidate .. '"')
-        table.insert(keys, ok and key or candidate)
+        table.insert(keys, { text = ok and key or candidate, lnum = candidate_line })
       end
       candidate = nil
     elseif not char:match "%s" then
@@ -68,7 +74,7 @@ local function extract_markdown(lines)
   local fence_char
   local fence_length
 
-  for _, line in ipairs(lines) do
+  for index, line in ipairs(lines) do
     local marker, trailing = line:match "^%s*([`~]+)(.*)$"
     local marker_char = marker and marker:sub(1, 1) or nil
     local is_fence = marker
@@ -88,7 +94,7 @@ local function extract_markdown(lines)
       if hashes and #hashes <= 6 then
         title = title:gsub("%s+#+%s*$", ""):gsub("%s+$", "")
         if title ~= "" then
-          table.insert(headings, string.rep("  ", #hashes - 1) .. title)
+          table.insert(headings, { text = string.rep("  ", #hashes - 1) .. title, lnum = index })
         end
       end
     end
@@ -113,7 +119,7 @@ local function extract_python(lines)
   local definitions = {}
   local stack = {}
 
-  for _, line in ipairs(lines) do
+  for index, line in ipairs(lines) do
     local whitespace = line:match "^[ \t]*"
     local body = line:sub(#whitespace + 1)
     local name = body:match("^class%s+" .. python_identifier .. "%s*[%(:]")
@@ -127,7 +133,10 @@ local function extract_python(lines)
       while #stack > 0 and indent <= stack[#stack] do
         table.remove(stack)
       end
-      table.insert(definitions, string.rep("  ", #stack) .. symbol .. " " .. name)
+      table.insert(definitions, {
+        text = string.rep("  ", #stack) .. symbol .. " " .. name,
+        lnum = index,
+      })
       table.insert(stack, indent)
     end
   end
@@ -154,10 +163,24 @@ end
 
 ---@param path string
 ---@param lines string[]
----@return string[]?
+---@return {text: string, lnum: integer}[]?
 function M.extract(path, lines)
   local handler = handlers[extension(path)]
   return handler and handler(lines) or nil
+end
+
+M._entries = {}
+
+---@param path string
+---@param entries {text: string, lnum: integer}[]?
+function M.cache_entries(path, entries)
+  M._entries[path] = entries or {}
+end
+
+---@param path string
+---@return {text: string, lnum: integer}[]?
+function M.cached_entries(path)
+  return M._entries[path]
 end
 
 ---@param opts table?
@@ -208,13 +231,14 @@ function M.new(opts)
 
           local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
           local extracted = M.extract(path, lines)
-          vim.api.nvim_buf_set_lines(
-            bufnr,
-            0,
-            -1,
-            false,
-            extracted and #extracted > 0 and extracted or { "No outline available" }
-          )
+          M.cache_entries(path, extracted)
+          local texts = extracted
+            and #extracted > 0
+            and vim.tbl_map(function(item)
+              return item.text
+            end, extracted)
+            or { "No outline available" }
+          vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, texts)
         end,
       })
     end,

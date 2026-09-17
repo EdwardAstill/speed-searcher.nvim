@@ -2,7 +2,11 @@ local outline = require "telescope._extensions.file_browser.outline"
 
 describe("outline extraction", function()
   it("extracts source-ordered top-level JSON keys only", function()
-    assert.are.same({ "name", "nested", "enabled" }, outline.extract("config.json", {
+    assert.are.same({
+      { text = "name", lnum = 2 },
+      { text = "nested", lnum = 3 },
+      { text = "enabled", lnum = 4 },
+    }, outline.extract("config.json", {
       "{",
       '  "name": "demo",',
       '  "nested": { "ignored": true },',
@@ -16,7 +20,11 @@ describe("outline extraction", function()
   end)
 
   it("indents Markdown headings and ignores fenced code", function()
-    assert.are.same({ "Guide", "  Setup", "    Linux" }, outline.extract("README.md", {
+    assert.are.same({
+      { text = "Guide", lnum = 1 },
+      { text = "  Setup", lnum = 2 },
+      { text = "    Linux", lnum = 6 },
+    }, outline.extract("README.md", {
       "# Guide",
       "## Setup",
       "```python",
@@ -37,10 +45,10 @@ describe("outline extraction", function()
 
   it("shows nested Python class and function symbols", function()
     assert.are.same({
-      "󰠱 Client",
-      "  󰊕 fetch",
-      "    󰊕 parse",
-      "󰊕 main",
+      { text = "󰠱 Client", lnum = 1 },
+      { text = "  󰊕 fetch", lnum = 2 },
+      { text = "    󰊕 parse", lnum = 3 },
+      { text = "󰊕 main", lnum = 5 },
     }, outline.extract("client.py", {
       "class Client:",
       "    async def fetch(self):",
@@ -53,8 +61,8 @@ describe("outline extraction", function()
 
   it("preserves non-ASCII Python identifiers", function()
     assert.are.same({
-      "󰠱 Café",
-      "  󰊕 résumé",
+      { text = "󰠱 Café", lnum = 1 },
+      { text = "  󰊕 résumé", lnum = 2 },
     }, outline.extract("client.py", {
       "class Café:",
       "    def résumé(self):",

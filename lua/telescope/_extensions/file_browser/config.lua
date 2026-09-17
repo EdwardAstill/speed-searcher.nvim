@@ -8,12 +8,6 @@ local telescope_actions = require "telescope.actions"
 
 local config = {}
 
-local cycle_outline_previewer = function(prompt_bufnr)
-  local picker = action_state.get_current_picker(prompt_bufnr)
-  if type(picker.all_previewers) == "table" and #picker.all_previewers > 1 then
-    picker:cycle_previewers(1)
-  end
-end
 
 _TelescopeFileBrowserConfig = {
   use_ui_input = true,
@@ -24,13 +18,26 @@ _TelescopeFileBrowserConfig = {
   tree_collapsed = "",
   tree_mappings = {
     ["i"] = {
-      ["<Up>"] = telescope_actions.move_selection_previous,
-      ["<Down>"] = telescope_actions.move_selection_next,
+      ["<Up>"] = fb_actions.tree_previous,
+      ["<Down>"] = fb_actions.tree_next,
       ["<C-Up>"] = fb_actions.previous_match,
       ["<C-Down>"] = fb_actions.next_match,
       ["<Left>"] = fb_actions.collapse,
       ["<Right>"] = fb_actions.expand,
-      ["<Tab>"] = cycle_outline_previewer,
+      ["<Tab>"] = fb_actions.cycle_tree_mode,
+      ["<Esc>"] = telescope_actions.close,
+    },
+    ["n"] = {
+      ["<Up>"] = fb_actions.tree_previous,
+      ["<Down>"] = fb_actions.tree_next,
+      ["<C-Up>"] = fb_actions.previous_match,
+      ["<C-Down>"] = fb_actions.next_match,
+      ["<Left>"] = fb_actions.collapse,
+      ["<Right>"] = fb_actions.expand,
+      ["<CR>"] = fb_actions.tree_select,
+      ["<Space>"] = fb_actions.tree_multi_select,
+      ["o"] = fb_actions.toggle_outline_preview,
+      ["<Tab>"] = fb_actions.cycle_tree_mode,
       ["<Esc>"] = telescope_actions.close,
     },
   },

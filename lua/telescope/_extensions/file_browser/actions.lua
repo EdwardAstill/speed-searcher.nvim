@@ -26,6 +26,7 @@ local a = vim.api
 
 local fb_utils = require "telescope._extensions.file_browser.utils"
 local fb_lsp = require "telescope._extensions.file_browser.lsp"
+local fb_outline = require "telescope._extensions.file_browser.outline"
 
 local actions = require "telescope.actions"
 local state = require "telescope.state"
@@ -919,6 +920,159 @@ end
 fb_actions.next_match = function(prompt_bufnr)
   move_to_match(prompt_bufnr, 1)
 end
+
+local file_prefix = "▸ "
+local outline_prefix = "≡ "
+
+local function outline_entries(picker)
+  local entry = action_state.get_selected_entry()
+  if not entry or entry.is_dir or not entry.path then
+    return nil
+  end
+  local cached = fb_outline.cached_entries(entry.path)
+  if cached == nil and fb_outline.supports(entry.path) and vim.fn.getfsize(entry.path) <= 1000000 then
+    fb_outline.cache_entries(entry.path, fb_outline.extract(entry.path, vim.fn.readfile(entry.path)))
+    cached = fb_outline.cached_entries(entry.path)
+  end
+  return cached and #cached > 0 and cached or nil
+end
+
+local function move_outline_cursor(prompt_bufnr, step)
+  local picker = action_state.get_current_picker(prompt_bufnr)
+  local entries = outline_entries(picker)
+  if not entries then
+    return
+  end
+  local count = #entries
+  local index = (picker._outline_index or 1) + step
+  if index < 1 then
+    index = count
+  elseif index > count then
+    index = 1
+  end
+  picker._outline_index = index
+  local win = picker.preview_winid
+  if win and vim.api.nvim_win_is_valid(win) then
+    pcall(vim.api.nvim_win_set_cursor, win, { index, 0 })
+  end
+end
+
+local function set_tree_prefix(picker, prefix)
+  picker._tree_search_prefix = picker._tree_search_prefix or picker.prompt_prefix
+  picker:change_prompt_prefix(prefix == "search" and picker._tree_search_prefix or prefix)
+end
+
+--- Cycle the tree modes: search (prompt edits), file (row navigation), and
+--- outline (outline entry navigation). The outline mode requires a supported
+--- selected file with outline entries; otherwise the cycle skips it.
+---@param prompt_bufnr integer
+fb_actions.cycle_tree_mode = function(prompt_bufnr)
+  local picker = action_state.get_current_picker(prompt_bufnr)
+  local mode = picker._tree_mode or "search"
+  local next_mode = mode == "search" and "file" or mode == "file" and "outline" or "search"
+  if next_mode == "outline" and not outline_entries(picker) then
+    next_mode = "search"
+  end
+  picker._tree_mode = next_mode
+  if next_mode == "search" then
+    set_tree_prefix(picker, "search")
+    picker._outline_index = nil
+    vim.cmd.startinsert()
+    return
+  end
+
+  set_tree_prefix(picker, next_mode == "file" and file_prefix or outline_prefix)
+  if next_mode == "file" then
+    vim.cmd.stopinsert()
+    return
+  end
+
+  if type(picker.all_previewers) == "table" and #picker.all_previewers > 1 and picker.current_previewer_index ~= 1 then
+    picker:cycle_previewers(1)
+  end
+  picker._outline_index = picker._outline_index or 1
+  local win = picker.preview_winid
+  if win and vim.api.nvim_win_is_valid(win) then
+    vim.wo[win].cursorline = true
+    pcall(vim.api.nvim_win_set_cursor, win, { picker._outline_index, 0 })
+  end
+end
+
+--- Move down: outline entries in outline mode, otherwise result rows.
+---@param prompt_bufnr integer
+fb_actions.tree_next = function(prompt_bufnr)
+  local picker = action_state.get_current_picker(prompt_bufnr)
+  if picker._tree_mode == "outline" then
+    move_outline_cursor(prompt_bufnr, 1)
+  else
+    actions.move_selection_next(prompt_bufnr)
+  end
+end
+--- Cycle between the outline and full-file previewers; leaves outline mode
+--- when the outline previewer is no longer active.
+---@param prompt_bufnr integer
+fb_actions.toggle_outline_preview = function(prompt_bufnr)
+  local picker = action_state.get_current_picker(prompt_bufnr)
+  if type(picker.all_previewers) == "table" and #picker.all_previewers > 1 then
+    picker:cycle_previewers(1)
+    if picker._tree_mode == "outline" and picker.current_previewer_index ~= 1 then
+      picker._tree_mode = "file"
+      picker._outline_index = nil
+      set_tree_prefix(picker, file_prefix)
+    end
+  end
+end
+
+
+--- Move up: outline entries in outline mode, otherwise result rows.
+---@param prompt_bufnr integer
+fb_actions.tree_previous = function(prompt_bufnr)
+  local picker = action_state.get_current_picker(prompt_bufnr)
+  if picker._tree_mode == "outline" then
+    move_outline_cursor(prompt_bufnr, -1)
+  else
+    actions.move_selection_previous(prompt_bufnr)
+  end
+end
+
+--- Open the selected entry; in outline mode, open the file at the selected
+--- outline entry's line instead of the start of the file.
+---@param prompt_bufnr integer
+fb_actions.tree_select = function(prompt_bufnr)
+  local picker = action_state.get_current_picker(prompt_bufnr)
+  if picker._tree_mode == "outline" then
+    local entry = action_state.get_selected_entry()
+    local entries = outline_entries(picker)
+    local target = entries and entries[picker._outline_index or 1]
+    if entry and target then
+      local jump_path = entry.path
+      local jump_lnum = target.lnum
+      vim.schedule(function()
+        for _ = 1, 20 do
+          if vim.api.nvim_buf_get_name(0) == jump_path then
+            pcall(vim.api.nvim_win_set_cursor, 0, { jump_lnum, 0 })
+            return
+          end
+          vim.wait(25)
+        end
+      end)
+    end
+  end
+  return actions.select_default(prompt_bufnr)
+end
+
+--- Toggle multi-selection on the selected row and move down; does nothing in
+--- outline mode.
+---@param prompt_bufnr integer
+fb_actions.tree_multi_select = function(prompt_bufnr)
+  local picker = action_state.get_current_picker(prompt_bufnr)
+  if picker._tree_mode == "outline" then
+    return
+  end
+  return (actions.toggle_selection + actions.move_selection_next)(prompt_bufnr)
+end
+
+
 
 --- Move to the previous visible row that directly matches the tree search.
 ---@param prompt_bufnr integer

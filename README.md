@@ -219,8 +219,17 @@ Clearing the prompt restores the manual expansion state from before the search.
 The preview pane lazily summarizes only the selected supported file. JSON
 objects show their top-level keys, Markdown files show headings indented by
 level, and Python files show indented class and function symbols. Unsupported
-files keep Telescope's normal preview. Press `<Tab>` to toggle between the
-outline and full-file preview; the outline is shown by default.
+files keep Telescope's normal preview; the outline is shown by default.
+
+`<Tab>` cycles three tree modes. Search mode (default) edits the prompt and
+filters as you type. File mode marks the prompt with `▸ ` and makes characters
+act as commands: arrows and `<C-Up>`/`<C-Down>` move through rows, `o` toggles
+the outline/full-file preview, `<Space>` toggles multi-selection and moves
+down, `<CR>` opens, and `<Esc>` closes. Outline mode marks the prompt with
+`≡ `, requires a supported selected file with outline entries (otherwise the
+cycle skips it), moves the arrows through outline entries in the preview, and
+`<CR>` opens the file at the selected entry's line. Press `<Tab>` from any
+mode to advance the cycle.
 
 Tree results retain depth-first hierarchy rather than being reordered by fuzzy
 score; only the direct matches are ranked, driving the initial selection and
@@ -233,8 +242,10 @@ these defaults:
 | `<Up>` / `<Down>` | Move through visible rows without leaving the prompt |
 | `<C-Up>` / `<C-Down>` | Move to the previous / next direct match, wrapping at either end |
 | `<Left>` / `<Right>` | Collapse / expand the selected directory |
-| `<Tab>` | Toggle outline / full-file preview |
-| `<CR>` | Open a file; do nothing on a directory |
+| `<Tab>` | Cycle search → file → outline mode |
+| `o` (file mode) | Toggle outline / full-file preview |
+| `<Space>` (file mode) | Toggle multi-selection, move down |
+| `<CR>` | Open a file; in outline mode, at the entry's line |
 | `<BS>` | Edit the search text, including when the prompt is empty |
 | `<Esc>` | Close the picker |
 
