@@ -88,11 +88,11 @@ describe("tree picker", function()
     assert.is_not_nil(mapped["<Right>"])
     assert.is_not_nil(mapped["<CR>"])
     assert.is_not_nil(mapped["<Esc>"])
-    assert.is_not_nil(mapped["<M-o>"])
+    assert.is_not_nil(mapped["<Tab>"])
     assert.is_nil(mapped["/"])
     assert.is_nil(mapped["<BS>"])
 
-    mapped["<M-o>"].callback(prompt_bufnr)
+    mapped["<Tab>"].callback(prompt_bufnr)
     assert.are.same(2, picker.current_previewer_index)
 
     local src = Path:new(root, "src"):absolute()
@@ -464,9 +464,9 @@ describe("tree picker", function()
       mapped[mapping.lhs] = mapping
     end
 
-    assert.is_not_nil(mapped["<M-o>"])
+    assert.is_not_nil(mapped["<Tab>"])
     assert.has_no.errors(function()
-      mapped["<M-o>"].callback(prompt_bufnr)
+      mapped["<Tab>"].callback(prompt_bufnr)
     end)
   end)
 

@@ -212,18 +212,20 @@ directories. Search always considers the complete recursive tree. A matching
 file is displayed with every ancestor directory expanded down to it. A matching
 directory is displayed with its ancestors and complete recursive subtree.
 Results update after every typed character; no confirmation step is required.
-The first directly matching row is selected while ancestor and subtree context
-remains visible.
+The best-scoring directly matching row is selected while ancestor and subtree
+context remains visible.
 Clearing the prompt restores the manual expansion state from before the search.
 
 The preview pane lazily summarizes only the selected supported file. JSON
 objects show their top-level keys, Markdown files show headings indented by
 level, and Python files show indented class and function symbols. Unsupported
-files keep Telescope's normal preview. Press `<M-o>` to toggle between the
-outline and full-file preview.
+files keep Telescope's normal preview. Press `<Tab>` to toggle between the
+outline and full-file preview; the outline is shown by default.
 
 Tree results retain depth-first hierarchy rather than being reordered by fuzzy
-score. Tree mode keeps the search prompt active with these defaults:
+score; only the direct matches are ranked, driving the initial selection and
+`<C-Up>`/`<C-Down>` navigation. Tree mode keeps the search prompt active with
+these defaults:
 
 | Key | Action |
 | --- | --- |
@@ -231,7 +233,7 @@ score. Tree mode keeps the search prompt active with these defaults:
 | `<Up>` / `<Down>` | Move through visible rows without leaving the prompt |
 | `<C-Up>` / `<C-Down>` | Move to the previous / next direct match, wrapping at either end |
 | `<Left>` / `<Right>` | Collapse / expand the selected directory |
-| `<M-o>` | Toggle outline / full-file preview |
+| `<Tab>` | Toggle outline / full-file preview |
 | `<CR>` | Open a file; do nothing on a directory |
 | `<BS>` | Edit the search text, including when the prompt is empty |
 | `<Esc>` | Close the picker |

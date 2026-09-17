@@ -230,6 +230,22 @@ function Tree:project(prompt)
   end
 
   add_search_results(self.root, 0)
+
+  if #match_indices > 1 then
+    local prefer_names = next(name_matches) ~= nil
+    local scores = {}
+    for _, index in ipairs(match_indices) do
+      local entry = results[index]
+      local subject = prefer_names and vim.fs.basename(entry.path) or entry.ordinal or entry.path
+      scores[index] = fzy.score(prompt, subject)
+    end
+    table.sort(match_indices, function(a, b)
+      if scores[a] ~= scores[b] then
+        return scores[a] > scores[b]
+      end
+      return a < b
+    end)
+  end
   return results, match_indices
 end
 

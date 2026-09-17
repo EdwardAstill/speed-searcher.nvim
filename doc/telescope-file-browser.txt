@@ -107,8 +107,9 @@ With `tree = true`, the picker keeps its search prompt active and keeps `path`
 as a fixed root. Search results update after every typed character. `<Up>` and
 `<Down>` move through visible rows, while `<Left>` and `<Right>` collapse and
 expand the selected directory. `<C-Up>` and `<C-Down>` move between directly
-matching rows and wrap at either end. The first direct match is selected after
-each search update. The horizontal arrows do nothing on files.
+matching rows in best-score order and wrap at either end. The best-scoring
+direct match is selected after each search update. The horizontal arrows do
+nothing on files.
 `<CR>` opens files and does nothing on directories, and `<Esc>` closes the
 picker. Backspace and `/` edit the prompt normally and never navigate the
 filesystem. Search results retain their hierarchy: matching files include
@@ -116,8 +117,8 @@ their ancestors, and matching directories include their complete subtree.
 The preview pane lazily summarizes only the selected supported file. JSON
 objects show top-level keys, Markdown files show headings indented by level,
 and Python files show indented class and function symbols. Unsupported files
-keep Telescope's normal preview. `<M-o>` toggles between the outline and
-full-file preview.
+keep Telescope's normal preview. The outline previewer is active by default;
+`<Tab>` toggles between the outline and full-file preview.
 
 The file browser picker can be configured with the following options:
 

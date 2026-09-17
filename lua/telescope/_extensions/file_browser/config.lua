@@ -30,7 +30,7 @@ _TelescopeFileBrowserConfig = {
       ["<C-Down>"] = fb_actions.next_match,
       ["<Left>"] = fb_actions.collapse,
       ["<Right>"] = fb_actions.expand,
-      ["<M-o>"] = cycle_outline_previewer,
+      ["<Tab>"] = cycle_outline_previewer,
       ["<Esc>"] = telescope_actions.close,
     },
   },

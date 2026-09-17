@@ -89,6 +89,19 @@ describe("tree projection", function()
     assert.are.same({ 3, 5 }, match_indices)
   end)
 
+  it("orders direct matches by fuzzy score", function()
+    local scored_entries = {
+      entry("/project/notes", true),
+      entry("/project/notes/knowledge-graphrag.md", false),
+      entry("/project/notes/knowledge.md", false),
+    }
+    local tree = Tree.new(root, scored_entries, { grouped = true })
+
+    local _, match_indices = tree:project "knowledge.md"
+
+    assert.are.same({ 3, 2 }, match_indices)
+  end)
+
   it("shows ancestors and the full subtree for a matching folder", function()
     local tree = Tree.new(root, entries, { grouped = true })
 
