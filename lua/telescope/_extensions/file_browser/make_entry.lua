@@ -172,7 +172,9 @@ local make_entry = function(opts)
       end
     end
 
-    local file_width = vim.F.if_nil(opts.file_width, math.max(15, total_file_width - tree_prefix_width))
+    local line_number = opts.tree and entry.lnum and tostring(entry.lnum)
+    local available_width = total_file_width - tree_prefix_width - (line_number and #line_number + #sep or 0)
+    local file_width = vim.F.if_nil(opts.file_width, math.max(opts.tree and 1 or 15, available_width))
     -- TODO maybe this can be dealt with more cleanly
     if #path_display > file_width then
       path_display = strings.truncate(path_display, file_width, nil, -1)
@@ -182,7 +184,10 @@ local make_entry = function(opts)
     table.insert(widths, { width = file_width })
 
     -- stat may be false meaning file not found / unavailable, e.g. broken symlink
-    if entry.stat and opts.display_stat then
+    if line_number then
+      table.insert(widths, { width = #line_number, right_justify = true })
+      table.insert(display_array, { line_number, "TelescopeResultsLineNr" })
+    elseif entry.stat and opts.display_stat then
       for _, stat in ipairs { "mode", "size", "date" } do
         local v = opts.display_stat[stat]
         if v then

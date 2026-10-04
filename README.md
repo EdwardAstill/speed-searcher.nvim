@@ -30,6 +30,7 @@ More demo examples can be found in the [showcase issue](https://github.com/nvim-
 - Neovim >= **0.9.0**
 - [fd](https://github.com/sharkdp/fd) (optional, for faster browser)
 - git (optional, for display git status)
+- [ripgrep](https://github.com/BurntSushi/ripgrep) (`rg`, for tree content search)
 
 ## Installation
 
@@ -207,50 +208,68 @@ require("telescope").setup {
 }
 ```
 
-The empty prompt shows the root's direct children plus manually expanded
-directories. Search always considers the complete recursive tree. A matching
-file is displayed with every ancestor directory expanded down to it. A matching
-directory is displayed with its ancestors and complete recursive subtree.
-Results update after every typed character; no confirmation step is required.
-The best-scoring directly matching row is selected while ancestor and subtree
-context remains visible.
-Clearing the prompt restores the manual expansion state from before the search.
+The browser starts in file navigation mode. The empty query shows the root's
+direct children plus manually expanded directories. Press `/` to edit the
+search, then `<CR>` to run it and return to navigation. `<Esc>` while editing
+cancels the draft and restores the previous query and search source.
+
+`<C-f>` toggles **Names** and **Content**, shown in the prompt. Names searches
+fuzzy-match file and folder paths across the complete recursive tree. A matching
+file appears with its ancestors, and a matching directory includes its subtree.
+Content searches use literal text, ignoring case unless the query contains an
+uppercase letter. Each matching line gets its own filename-and-line-number row
+under the file's parent folder, for example:
+
+```text
+folder1
+  file1.md  34
+  file1.md  85
+```
+
+Toggling the source while navigating reruns the current query. While editing,
+the toggle changes the source for the next confirmed search. Confirm an empty
+query to restore the manual expansion state from before the search.
+
+Results stay in tree order, with the best direct match selected after a search.
+The selected row scrolls into view with nearby ancestors and children, including
+in short windows. Tree rows do not wrap. A command bar at the bottom shows the
+controls for the current mode and adapts to the available width.
 
 The preview pane lazily summarizes only the selected supported file. JSON
 objects show their top-level keys, Markdown files show headings indented by
 level, and Python files show indented class and function symbols. Unsupported
 files keep Telescope's normal preview; the outline is shown by default.
+Content matches use the full-file preview, highlighting and scrolling to the
+matching line. Opening a content row jumps to that occurrence.
 
-`<Tab>` cycles three tree modes. Search mode (default) edits the prompt and
-filters as you type. File mode marks the prompt with `▸ ` and makes characters
-act as commands: arrows and `<C-Up>`/`<C-Down>` move through rows, `o` toggles
-the outline/full-file preview, `<Space>` toggles multi-selection and moves
-down, `<CR>` opens, and `<Esc>` closes. Outline mode marks the prompt with
-`≡ `, requires a supported selected file with outline entries (otherwise the
-cycle skips it), moves the arrows through outline entries in the preview, and
-`<CR>` opens the file at the selected entry's line. Press `<Tab>` from any
-mode to advance the cycle.
+`<Tab>` toggles file and outline navigation. File mode marks the prompt with
+`▸ `: arrows move through rows and expand/collapse folders, `o` toggles the
+outline/full-file preview, `<Space>` toggles multi-selection and moves down,
+`<CR>` opens, and `<Esc>` closes. Outline mode marks the prompt with `≡ `,
+requires a supported selected file with outline entries (otherwise it is
+skipped), moves the arrows through outline entries in the preview, and `<CR>`
+opens the file at the selected entry's line. `/` starts search from either view.
 
 Tree results retain depth-first hierarchy rather than being reordered by fuzzy
 score; only the direct matches are ranked, driving the initial selection and
-`<C-Up>`/`<C-Down>` navigation. Tree mode keeps the search prompt active with
-these defaults:
+`<C-Up>`/`<C-Down>` navigation. Tree mode uses these defaults:
 
 | Key | Action |
 | --- | --- |
-| Any text | Update the search immediately |
-| `<Up>` / `<Down>` | Move through visible rows without leaving the prompt |
+| `/` | Begin editing the search |
+| `<C-f>` | Toggle Names / Content search |
+| `<Up>` / `<Down>` | Move through visible rows |
 | `<C-Up>` / `<C-Down>` | Move to the previous / next direct match, wrapping at either end |
 | `<Left>` / `<Right>` | Collapse / expand the selected directory |
-| `<Tab>` | Cycle search → file → outline mode |
+| `<Tab>` | Toggle file / outline navigation |
 | `o` (file mode) | Toggle outline / full-file preview |
 | `<Space>` (file mode) | Toggle multi-selection, move down |
-| `<CR>` | Open a file; in outline mode, at the entry's line |
-| `<BS>` | Edit the search text, including when the prompt is empty |
-| `<Esc>` | Close the picker |
+| `<CR>` | Confirm a search; when navigating, open the selected file or occurrence |
+| `<BS>` | Edit the search draft |
+| `<Esc>` | Cancel a search draft; when navigating, close the picker |
 
-`/` is ordinary search text in tree mode. Left and Right do nothing when a file
-is selected.
+While editing, `/` is ordinary search text. Left and Right do nothing when a
+file is selected in navigation mode.
 
 Override any tree control through the normal extension `mappings` table.
 

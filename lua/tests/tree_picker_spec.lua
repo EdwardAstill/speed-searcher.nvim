@@ -63,7 +63,7 @@ describe("tree picker", function()
     end, 10))
 
     local picker = action_state.get_current_picker(prompt_bufnr)
-    assert.are.same("insert", picker.initial_mode)
+    assert.are.same("normal", picker.initial_mode)
     assert.is_true(action_state.get_selected_entry().is_dir)
     assert.are.same(2, #picker.all_previewers)
     assert.are.same(1, picker.current_previewer_index)
@@ -84,8 +84,8 @@ describe("tree picker", function()
     end
     assert.is_not_nil(mapped["<Up>"])
     assert.is_not_nil(mapped["<Down>"])
-    assert.is_not_nil(mapped["<Left>"])
-    assert.is_not_nil(mapped["<Right>"])
+    assert.is_nil(mapped["<Left>"])
+    assert.is_nil(mapped["<Right>"])
     assert.is_not_nil(mapped["<CR>"])
     assert.is_not_nil(mapped["<Esc>"])
     assert.is_not_nil(mapped["<Tab>"])
@@ -99,21 +99,28 @@ describe("tree picker", function()
     assert.is_not_nil(normal_mapped["<Tab>"])
     assert.is_not_nil(normal_mapped[" "])
     assert.is_not_nil(normal_mapped["o"])
+    assert.is_not_nil(normal_mapped["<Left>"])
+    assert.is_not_nil(normal_mapped["<Right>"])
+    assert.is_not_nil(normal_mapped["/"])
+    assert.is_not_nil(normal_mapped["<C-F>"])
 
-    local search_prefix = picker.prompt_prefix
-    mapped["<Tab>"].callback(prompt_bufnr)
-    assert.are.same("file", picker._tree_mode)
-    assert.are_not.same(search_prefix, picker.prompt_prefix)
-    normal_mapped["<Tab>"].callback(prompt_bufnr)
+    local file_prefix = picker.prompt_prefix
+    normal_mapped["/"].callback(prompt_bufnr)
     assert.are.same("search", picker._tree_mode)
-    assert.are.same(search_prefix, picker.prompt_prefix)
+    assert.are_not.same(file_prefix, picker.prompt_prefix)
+    mapped["<Esc>"].callback(prompt_bufnr)
+    assert.are.same("file", picker._tree_mode)
+    assert.are.same(file_prefix, picker.prompt_prefix)
+    normal_mapped["<Tab>"].callback(prompt_bufnr)
+    assert.are.same("file", picker._tree_mode)
+    assert.are.same(file_prefix, picker.prompt_prefix)
 
     normal_mapped["o"].callback(prompt_bufnr)
     assert.are.same(2, picker.current_previewer_index)
 
     local src = Path:new(root, "src"):absolute()
     local child = Path:new(root, "src", "child.lua"):absolute()
-    mapped["<Right>"].callback(prompt_bufnr)
+    normal_mapped["<Right>"].callback(prompt_bufnr)
     assert.is_true(vim.wait(1000, function()
       return #picker.finder.results == 3
     end, 10))
@@ -121,7 +128,7 @@ describe("tree picker", function()
     assert.are.same(src, action_state.get_selected_entry().path)
 
     picker:reset_prompt "child"
-    mapped["<Left>"].callback(prompt_bufnr)
+    normal_mapped["<Left>"].callback(prompt_bufnr)
     picker:reset_prompt ""
     assert.is_true(vim.wait(1000, function()
       return #picker.finder.results == 3 and picker.finder.tree_state.expanded[src] == true
@@ -129,12 +136,12 @@ describe("tree picker", function()
 
     mapped["<Down>"].callback(prompt_bufnr)
     assert.are.same(child, action_state.get_selected_entry().path)
-    mapped["<Left>"].callback(prompt_bufnr)
+    normal_mapped["<Left>"].callback(prompt_bufnr)
     assert.is_true(picker.finder.tree_state.expanded[src])
     assert.are.same(child, action_state.get_selected_entry().path)
     mapped["<Up>"].callback(prompt_bufnr)
     assert.are.same(src, action_state.get_selected_entry().path)
-    mapped["<Left>"].callback(prompt_bufnr)
+    normal_mapped["<Left>"].callback(prompt_bufnr)
     assert.is_true(vim.wait(1000, function()
       return #picker.finder.results == 2
     end, 10))
@@ -145,14 +152,14 @@ describe("tree picker", function()
     assert.is_true(vim.wait(1000, function()
       return #picker.finder.results == 0
     end, 10))
-    mapped["<CR>"].callback(prompt_bufnr)
+    normal_mapped["<CR>"].callback(prompt_bufnr)
     assert.is_false(missing:exists())
 
     picker:reset_prompt ""
     assert.is_true(vim.wait(1000, function()
       return #picker.finder.results == 2
     end, 10))
-    mapped["<Right>"].callback(prompt_bufnr)
+    normal_mapped["<Right>"].callback(prompt_bufnr)
     assert.is_true(vim.wait(1000, function()
       return #picker.finder.results == 3
     end, 10))
@@ -249,7 +256,7 @@ describe("tree picker", function()
     assert.is_nil(file_display:find "G")
   end)
 
-  it("updates search live while arrow keys navigate the tree", function()
+  it("projects name searches while arrow keys navigate the tree", function()
     local telescope = require "telescope"
     telescope.setup {
       extensions = {
@@ -316,21 +323,21 @@ describe("tree picker", function()
     assert.is_not_nil(insert_mapped["<Down>"])
     assert.is_not_nil(insert_mapped["<C-Up>"])
     assert.is_not_nil(insert_mapped["<C-Down>"])
-    assert.is_not_nil(insert_mapped["<Left>"])
-    assert.is_not_nil(insert_mapped["<Right>"])
+    assert.is_nil(insert_mapped["<Left>"])
+    assert.is_nil(insert_mapped["<Right>"])
     assert.is_not_nil(insert_mapped["<CR>"])
     assert.is_nil(insert_mapped["/"])
     assert.is_nil(insert_mapped["<BS>"])
 
     insert_mapped["<Up>"].callback(prompt_bufnr)
     assert.are.same(Path:new(root, "src"):absolute(), action_state.get_selected_entry().path)
-    insert_mapped["<Left>"].callback(prompt_bufnr)
+    mappings("n")["<Left>"].callback(prompt_bufnr)
     assert.is_true(vim.wait(1000, function()
       return #picker.finder.results == 1 and picker.manager:num_results() == 1
     end, 10))
     assert.are.same("child", picker:_get_prompt())
 
-    insert_mapped["<Right>"].callback(prompt_bufnr)
+    mappings("n")["<Right>"].callback(prompt_bufnr)
     assert.is_true(vim.wait(1000, function()
       return #picker.finder.results == 2 and picker.manager:num_results() == 2
     end, 10))
@@ -339,7 +346,7 @@ describe("tree picker", function()
     assert.are.same("child", picker:_get_prompt())
     assert.are.same(child, action_state.get_selected_entry().path)
 
-    insert_mapped["<CR>"].callback(prompt_bufnr)
+    mappings("n")["<CR>"].callback(prompt_bufnr)
     assert.is_true(vim.wait(1000, function()
       return not vim.api.nvim_buf_is_valid(prompt_bufnr)
     end, 10))
@@ -399,6 +406,146 @@ describe("tree picker", function()
     assert.are.same(first_match, action_state.get_selected_entry().path)
     mapped["<C-Up>"].callback(prompt_bufnr)
     assert.are.same(second_match, action_state.get_selected_entry().path)
+  end)
+
+  local function visible_tree_paths(picker)
+    vim.cmd.redraw()
+    return vim.api.nvim_win_call(picker.results_win, function()
+      local paths = {}
+      for row = vim.fn.line "w0", vim.fn.line "w$" do
+        local item = picker.manager:get_entry(picker:get_index(row - 1))
+        if item then
+          table.insert(paths, item.path)
+        end
+      end
+      return paths
+    end)
+  end
+
+  it("shows distant matches and their ancestors in a short window", function()
+    vim.fn.delete(Path:new(root, "src", "child.lua"):absolute())
+    local context = Path:new(root, "a-child"):absolute()
+    local parent = Path:new(root, "z-parent"):absolute()
+    local nested = Path:new(parent, "nested"):absolute()
+    local target = Path:new(nested, "child.lua"):absolute()
+    vim.fn.mkdir(context, "p")
+    vim.fn.mkdir(nested, "p")
+    for index = 1, 300 do
+      vim.fn.writefile({ "return true" }, Path:new(context, string.format("noise%03d.lua", index)):absolute())
+    end
+    vim.fn.writefile({ "return true" }, target)
+
+    local telescope = require "telescope"
+    telescope.setup {
+      extensions = {
+        file_browser = {
+          tree = true,
+          grouped = true,
+          use_fd = false,
+          git_status = false,
+          display_stat = false,
+          mappings = {},
+        },
+      },
+    }
+    telescope.load_extension "file_browser"
+    telescope.extensions.file_browser.file_browser {
+      path = root,
+      cwd = root,
+      previewer = false,
+      wrap_results = true,
+      layout_config = { width = 40, height = 10, prompt_position = "top" },
+    }
+
+    assert.is_true(vim.wait(1000, function()
+      prompt_bufnr = find_prompt()
+      local picker = prompt_bufnr and action_state.get_current_picker(prompt_bufnr)
+      return picker and picker.manager and picker.manager:num_results() > 0
+    end, 10))
+
+    local picker = action_state.get_current_picker(prompt_bufnr)
+    picker:reset_prompt "child"
+    assert.is_true(vim.wait(1000, function()
+      local selected = action_state.get_selected_entry()
+      return #picker.finder.results > 250 and selected and selected.path == target
+    end, 10))
+    assert.is_false(vim.wo[picker.results_win].wrap)
+    assert.is_true(picker.max_results >= #picker.finder.results)
+    local selected_line = vim.api.nvim_buf_get_lines(
+      picker.results_bufnr, picker._selection_row, picker._selection_row + 1, false
+    )[1]
+    assert.is_truthy(selected_line:find("child.lua", 1, true))
+    local visible = visible_tree_paths(picker)
+    assert.is_true(vim.tbl_contains(visible, parent))
+    assert.is_true(vim.tbl_contains(visible, nested))
+    assert.is_true(vim.tbl_contains(visible, target))
+
+    local fb_actions = telescope.extensions.file_browser.actions
+    fb_actions.next_match(prompt_bufnr)
+    assert.are.same(context, action_state.get_selected_entry().path)
+    fb_actions.previous_match(prompt_bufnr)
+    assert.are.same(target, action_state.get_selected_entry().path)
+    assert.is_true(vim.tbl_contains(visible_tree_paths(picker), target))
+
+    picker.layout_config.horizontal.height = 7
+    picker:full_layout_update()
+    assert.are.same(2, vim.api.nvim_win_get_height(picker.results_win))
+    visible = visible_tree_paths(picker)
+    assert.are.same({ nested, target }, visible)
+    assert.are.same(target, action_state.get_selected_entry().path)
+  end)
+
+  it("shows child context when moving to a matching directory", function()
+    vim.fn.delete(Path:new(root, "src", "child.lua"):absolute())
+    local first = Path:new(root, "a-child"):absolute()
+    local target = Path:new(root, "z-child"):absolute()
+    local nested = Path:new(target, "nested"):absolute()
+    vim.fn.mkdir(first, "p")
+    vim.fn.mkdir(nested, "p")
+    for index = 1, 15 do
+      vim.fn.writefile({ "return true" }, Path:new(first, string.format("noise%03d.lua", index)):absolute())
+    end
+    vim.fn.writefile({ "return true" }, Path:new(nested, "leaf.lua"):absolute())
+
+    local telescope = require "telescope"
+    telescope.setup {
+      extensions = {
+        file_browser = {
+          tree = true,
+          grouped = true,
+          use_fd = false,
+          git_status = false,
+          display_stat = false,
+          mappings = {},
+        },
+      },
+    }
+    telescope.load_extension "file_browser"
+    telescope.extensions.file_browser.file_browser {
+      path = root,
+      cwd = root,
+      previewer = false,
+      layout_config = { width = 40, height = 10, prompt_position = "top" },
+    }
+
+    assert.is_true(vim.wait(1000, function()
+      prompt_bufnr = find_prompt()
+      local picker = prompt_bufnr and action_state.get_current_picker(prompt_bufnr)
+      return picker and picker.manager and picker.manager:num_results() > 0
+    end, 10))
+
+    local picker = action_state.get_current_picker(prompt_bufnr)
+    picker:reset_prompt "child"
+    assert.is_true(vim.wait(1000, function()
+      return #picker.finder.match_indices == 2 and action_state.get_selected_entry().path == first
+    end, 10))
+    for _ = 1, 16 do
+      telescope.extensions.file_browser.actions.tree_next(prompt_bufnr)
+    end
+    assert.are.same(target, action_state.get_selected_entry().path)
+    local visible = visible_tree_paths(picker)
+    assert.is_true(vim.tbl_contains(visible, target))
+    assert.is_true(vim.tbl_contains(visible, nested))
   end)
 
   it("allows disabling tree mappings with equivalent key names", function()
@@ -485,7 +632,7 @@ describe("tree picker", function()
     end)
   end)
 
-  it("closes the picker with Escape from search input", function()
+  it("closes the picker with Escape from file navigation", function()
     local telescope = require "telescope"
     telescope.setup {
       extensions = {
@@ -510,12 +657,12 @@ describe("tree picker", function()
       return prompt_bufnr ~= nil
     end, 10))
 
-    local insert_mapped = {}
-    for _, mapping in ipairs(vim.api.nvim_buf_get_keymap(prompt_bufnr, "i")) do
-      insert_mapped[mapping.lhs] = mapping
+    local normal_mapped = {}
+    for _, mapping in ipairs(vim.api.nvim_buf_get_keymap(prompt_bufnr, "n")) do
+      normal_mapped[mapping.lhs] = mapping
     end
-    assert.is_not_nil(insert_mapped["<Esc>"])
-    insert_mapped["<Esc>"].callback(prompt_bufnr)
+    assert.is_not_nil(normal_mapped["<Esc>"])
+    normal_mapped["<Esc>"].callback(prompt_bufnr)
 
     assert.is_true(vim.wait(1000, function()
       return not vim.api.nvim_buf_is_valid(prompt_bufnr)
@@ -562,8 +709,6 @@ describe("tree picker", function()
       return selected and selected.path == doc:absolute()
     end, 10))
 
-    mapped["<Tab>"].callback(prompt_bufnr)
-    assert.are.same("file", picker._tree_mode)
     mapped["<Tab>"].callback(prompt_bufnr)
     assert.are.same("outline", picker._tree_mode)
     assert.are.same(1, picker.current_previewer_index)

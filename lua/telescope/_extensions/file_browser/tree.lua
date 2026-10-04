@@ -148,9 +148,10 @@ function Tree:sync_prompt(prompt)
 end
 
 ---@param prompt string
+---@param content_matches table<string, table[]>?
 ---@return table[]
 ---@return integer[] match_indices
-function Tree:project(prompt)
+function Tree:project(prompt, content_matches)
   prompt = prompt or ""
   local results = {}
   local match_indices = {}
@@ -191,19 +192,26 @@ function Tree:project(prompt)
     end
   end
 
-  for path, entry in pairs(self.entries) do
-    if fzy.has_match(prompt, entry.ordinal or path) then
-      path_matches[path] = true
-      if fzy.has_match(prompt, vim.fs.basename(path)) then
-        name_matches[path] = true
-      end
-      include_ancestors(path)
-      if entry.is_dir then
-        include_subtree(path)
+  if not content_matches then
+    for path, entry in pairs(self.entries) do
+      if fzy.has_match(prompt, entry.ordinal or path) then
+        path_matches[path] = true
+        if fzy.has_match(prompt, vim.fs.basename(path)) then
+          name_matches[path] = true
+        end
+        include_ancestors(path)
+        if entry.is_dir then
+          include_subtree(path)
+        end
       end
     end
   end
   local direct_matches = next(name_matches) and name_matches or path_matches
+  for path in pairs(content_matches or {}) do
+    if self.entries[path] then
+      include_ancestors(path)
+    end
+  end
 
   local function add_search_results(parent, depth)
     for _, entry in ipairs(self.children[parent] or {}) do
@@ -218,9 +226,18 @@ function Tree:project(prompt)
         local expanded = entry.is_dir and has_visible_children and not self.search_collapsed[entry.path]
         local child_count = entry.is_dir and #(self.children[entry.path] or {}) or nil
         set_metadata(entry, depth, expanded, entry.is_dir and child_count > 0, child_count)
-        table.insert(results, entry)
-        if direct_matches[entry.path] then
-          table.insert(match_indices, #results)
+        local hits = content_matches and content_matches[entry.path]
+        if hits and #hits > 0 then
+          for _, hit in ipairs(hits) do
+            set_metadata(hit, depth, false, false, nil)
+            table.insert(results, hit)
+            table.insert(match_indices, #results)
+          end
+        else
+          table.insert(results, entry)
+          if direct_matches[entry.path] then
+            table.insert(match_indices, #results)
+          end
         end
         if expanded then
           add_search_results(entry.path, depth + 1)
@@ -236,7 +253,7 @@ function Tree:project(prompt)
     local scores = {}
     for _, index in ipairs(match_indices) do
       local entry = results[index]
-      local subject = prefer_names and vim.fs.basename(entry.path) or entry.ordinal or entry.path
+      local subject = entry.text or (prefer_names and vim.fs.basename(entry.path) or entry.ordinal or entry.path)
       scores[index] = fzy.score(prompt, subject)
     end
     table.sort(match_indices, function(a, b)

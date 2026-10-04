@@ -183,7 +183,13 @@ fb_finders.browse_tree = function(opts)
     close = function() end,
   }, {
     __call = function(self, prompt, process_result, process_complete)
-      self.results, self.match_indices = tree_state:project(prompt)
+      local content_matches = opts._tree_search_scope == "content"
+          and (opts._content_prompt == prompt and opts._content_matches or {})
+        or nil
+      self.results, self.match_indices = tree_state:project(prompt, content_matches)
+      if opts._on_tree_results then
+        opts._on_tree_results(#self.results)
+      end
       for index, entry in ipairs(self.results) do
         entry.index = index
         if process_result(entry) then

@@ -38,10 +38,12 @@
 --- The file browser picker can be configured with the following options:
 
 local pickers = require "telescope.pickers"
+local EntryManager = require "telescope.entry_manager"
 local conf = require("telescope.config").values
 
 local fb_finder = require "telescope._extensions.file_browser.finders"
 local fb_outline = require "telescope._extensions.file_browser.outline"
+local fb_search = require "telescope._extensions.file_browser.search"
 local fb_utils = require "telescope._extensions.file_browser.utils"
 
 local Path = require "plenary.path"
@@ -49,6 +51,75 @@ local os_sep = Path.path.sep
 
 -- enclose in module for docgen
 local fb_picker = {}
+
+local function reveal_tree_context(picker)
+  local entry = picker:get_selection()
+  local win = picker.results_win
+  local row = picker._selection_row
+  local tree = picker.finder.tree_state
+  if not entry or row == nil or not tree or not win or not vim.api.nvim_win_is_valid(win) then
+    return
+  end
+
+  local line = row + 1
+  local height = vim.api.nvim_win_get_height(win)
+  local topline = math.max(1, line - math.floor((height - 1) / 2))
+  -- Leave room below an expanded directory to show its children.
+  local context_height = height - (entry.is_dir and entry._tree_expanded and height > 1 and 1 or 0)
+  local parent = tree:parent(entry.path)
+  while parent and parent ~= tree.root do
+    local index = picker.manager:find_entry(tree.entries[parent])
+    if not index or line - index >= context_height then
+      break
+    end
+    topline = math.min(topline, index)
+    parent = tree:parent(parent)
+  end
+
+  vim.wo[win].scrolloff = 0
+  vim.api.nvim_win_call(win, function()
+    -- Telescope can reset the cursor even when the selected entry is unchanged.
+    vim.fn.winrestview { lnum = line, col = 0, topline = topline, leftcol = 0, skipcol = 0 }
+  end)
+end
+
+local function configure_tree_picker(picker)
+  picker._tree_mode = "file"
+  picker.prompt_prefix = "Names ▸ "
+  picker.finder._on_tree_results = function(count)
+    if count > picker.max_results then
+      -- Context rows must not consume Telescope's fixed 250-row scrolling limit.
+      picker.max_results = count
+      picker.__scrolling_limit = count
+      picker.manager = EntryManager:new(count, picker.entry_adder, picker.stats)
+    end
+  end
+
+  local set_selection = picker.set_selection
+  picker.set_selection = function(self, row)
+    set_selection(self, row)
+    reveal_tree_context(self)
+    local entry = self:get_selection()
+    if
+      entry and entry.lnum and self._tree_mode ~= "outline"
+      and self.current_previewer_index == 1 and type(self.all_previewers) == "table" and #self.all_previewers > 1
+    then
+      self:cycle_previewers(1)
+    end
+    fb_search.update_footer(self)
+  end
+  local full_layout_update = picker.full_layout_update
+  picker.full_layout_update = function(self)
+    full_layout_update(self)
+    reveal_tree_context(self)
+    fb_search.update_footer(self)
+  end
+  local close_windows = picker.close_windows
+  picker.close_windows = function(status)
+    fb_search.close(picker)
+    close_windows(status)
+  end
+end
 
 -- try to get the index of entry of current buffer
 
@@ -159,7 +230,7 @@ fb_picker.file_browser = function(opts)
   opts.tree_indent = vim.F.if_nil(opts.tree_indent, "  ")
   opts.tree_expanded = vim.F.if_nil(opts.tree_expanded, "")
   opts.tree_collapsed = vim.F.if_nil(opts.tree_collapsed, "")
-  opts.initial_mode = opts.tree and vim.F.if_nil(opts.initial_mode, "insert") or opts.initial_mode
+  opts.initial_mode = opts.tree and "normal" or opts.initial_mode
   opts.sorting_strategy = opts.tree and "ascending" or opts.sorting_strategy
   opts.quiet = vim.F.if_nil(opts.quiet, false)
   opts.hide_parent_dir = vim.F.if_nil(opts.hide_parent_dir, false)
@@ -174,6 +245,7 @@ fb_picker.file_browser = function(opts)
   opts.use_fd = vim.F.if_nil(opts.use_fd, true)
   if opts.tree then
     opts.git_status = false
+    opts.wrap_results = false
   else
     opts.git_status = vim.F.if_nil(opts.git_status, vim.fn.executable "git" == 1)
   end
@@ -217,20 +289,22 @@ fb_picker.file_browser = function(opts)
     -- end)
   end
 
-  local previewer = conf.file_previewer(opts)
+  local previewer = opts.tree and conf.grep_previewer(opts) or conf.file_previewer(opts)
   if opts.tree and previewer then
     previewer = { fb_outline.new(opts), previewer }
   end
 
-  pickers
-    .new(opts, {
-      prompt_title = opts.tree and "Tree Browser" or (opts.files and "File Browser" or "Folder Browser"),
-      results_title = Path:new(opts.path):make_relative(cwd) .. os_sep,
-      prompt_prefix = fb_utils.relative_path_prefix(opts.finder),
-      previewer = previewer,
-      sorter = opts.tree and require("telescope.sorters").highlighter_only(opts) or conf.file_sorter(opts),
-    })
-    :find()
+  local picker = pickers.new(opts, {
+    prompt_title = opts.tree and "Tree Browser" or (opts.files and "File Browser" or "Folder Browser"),
+    results_title = Path:new(opts.path):make_relative(cwd) .. os_sep,
+    prompt_prefix = fb_utils.relative_path_prefix(opts.finder),
+    previewer = previewer,
+    sorter = opts.tree and require("telescope.sorters").highlighter_only(opts) or conf.file_sorter(opts),
+  })
+  if opts.tree then
+    configure_tree_picker(picker)
+  end
+  picker:find()
 end
 
 return fb_picker.file_browser

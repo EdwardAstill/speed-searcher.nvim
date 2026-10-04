@@ -35,7 +35,15 @@ fb_utils.get_selected_files = function(prompt_bufnr, smart)
   selected = vim.tbl_map(function(entry)
     return Path:new(entry)
   end, selected)
-  return selected
+  local seen = {}
+  return vim.tbl_filter(function(file)
+    local path = file:absolute()
+    if seen[path] then
+      return false
+    end
+    seen[path] = true
+    return true
+  end, selected)
 end
 
 --- Do `opts.cb` if `opts.cond` is met for any valid buf
